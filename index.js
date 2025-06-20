@@ -1,12 +1,58 @@
 const express = require("express");
 const app = express();
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
 const cors = require("cors");
 require("dotenv").config();
 const port = process.env.port || 3000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
-app.use(cors()); // aivabe e keno likhsi
+// midleweare
+app.use(
+  cors({
+    origin: ["http://localhost:5173"],
+    credentials: true,
+  })
+); // aivabe e keno likhsi
 app.use(express.json()); // error kheye buja j aita use korte hobe .ar aitar docta khuje ber kora
+app.use(cookieParser());
+
+var admin = require("firebase-admin");
+
+var serviceAccount = require("./firebaseAdminkey.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+const verifyToken = (req, res, next) => {
+  const token = req?.cookies?.token;
+  console.log("the cookies: ", token);
+  if (!token) {
+    return res.status(401).send({ message: "unauthorized access" });
+  }
+  // verify
+  jwt.verify(token, process.env.JWT_ACCESS_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: "unauthorized access" });
+    }
+    req.decoded = decoded;
+  });
+  next();
+};
+
+const verifyFirebaseToken = async (req, res, next) => {
+  const authHeader = req?.headers?.authorization;
+  const token = authHeader.split(" ")[1];
+  if (!token) {
+    return res.status(401).send({ message: "unauthorize access" });
+  }
+  const userInfo = await admin.auth().verifyIdToken(token);
+  req.tokenEmail = userInfo.email;
+  // console.log("fb token", userInfo);
+
+  next();
+};
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.nc8opzq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -29,8 +75,27 @@ async function run() {
       .db("careerCode")
       .collection("applications");
 
+    //jwt token related api
+    app.post("/jwt", (req, res) => {
+      const userData = req.body;
+      const token = jwt.sign(userData, process.env.JWT_ACCESS_SECRET, {
+        expiresIn: "1d",
+      });
+
+      //set token in the cookies
+      res.cookie("token", token, {
+        httpOnly: true,
+        secure: false,
+      });
+
+      res.send({ success: true });
+    });
+
+    // job related api
+
     app.get("/jobs", async (req, res) => {
       const result = await jobsCollection.find().toArray();
+
       res.send(result);
     });
 
@@ -44,8 +109,16 @@ async function run() {
 
     // job applications related api
 
-    app.get("/applications", async (req, res) => {
+    app.get("/applications", verifyFirebaseToken, async (req, res) => {
       const email = req.query.email;
+      // console.log(req.cookies);
+      // if(email !== req.decoded.email){
+      //   return res.status(403).send({message: "forbidden access"})
+      // }
+
+      if (req.tokenEmail != email) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
       const query = {
         applicant: email,
       };

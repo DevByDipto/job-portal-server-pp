@@ -1,0 +1,13 @@
+1. hwt tokwn creat kora:
+   1. clint side theke server side e email pathaisi
+   2. server side e email tke kaje lagai token toiri korbo
+
+// akhon amar kaj jwt ta cookie te set kora. tobe cookie te set korbo keno?
+2. server theke client e cookie pathate hole:
+   1. client side e permition dite hobe j cookie pathaw tai add kori(withcredential: true)
+   2. same vabe server side e o akta midelweare set korte hobe j orgin er maddhome ami omuk side ke cookie dibo nad credential true
+   3. jwt api theke res.cookie te cookie ta save kore dite hobe with httpOnly:true
+   then, clientside e cookie cole jabe
+// cookieParser keno use korbo ?
+// veryfitoken toiri kora
+3.   
