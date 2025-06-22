@@ -16,6 +16,14 @@ app.use(
 ); // aivabe e keno likhsi
 app.use(express.json()); // error kheye buja j aita use korte hobe .ar aitar docta khuje ber kora
 app.use(cookieparser()); // aitar kaj kii ? aita kii kora lagbe ?
+var admin = require("firebase-admin");
+
+var serviceAccount = require("./firebase-adminkey.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.nc8opzq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 //verifyToken
@@ -37,7 +45,17 @@ console.log(decoded);
   });
 };
 
-
+// firebase verifycation
+const firebaseVarifyToken= async(req,res,next)=>{
+  const authHeader = req.headers.authorization
+  const token = authHeader.split(' ')[1]
+  if (!token) {
+    return res.status(401).send({ message: "unathorized access..." });
+  }
+  const userInfo = await admin.auth().verifyIdToken(token)
+req.tokenEmail = userInfo.email
+  next()
+}
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -90,9 +108,9 @@ async function run() {
 
     // job applications related api
 
-    app.get("/applications", verifyToken, async (req, res) => {
+    app.get("/applications", firebaseVarifyToken, async (req, res) => {
       const email = req.query.email;
-      if (email !== req.decoded.email) {
+      if (email !== req.tokenEmail) {
         return res.status(403).send({ message: "forbidden success" });
       }
       const query = {
